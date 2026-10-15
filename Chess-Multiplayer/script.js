@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-const socket = io('http://localhost:3000');
+const socket = io();
 console.log(socket);
 
 socket.on('total-players', function(data) {

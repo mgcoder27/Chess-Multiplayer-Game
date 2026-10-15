@@ -2,6 +2,7 @@ const { createServer } = require('http');
 const { readFile } = require('fs');
 const path = require('path');
 const { Server } = require('socket.io');
+const { createMatchmaker } = require('./matchmaking');
 
 const publicRoot = __dirname;
 const contentTypes = {
@@ -42,33 +43,14 @@ function serveFile(request, response) {
 const httpServer = createServer(serveFile);
 const io = new Server(httpServer, {
     cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+        origin: process.env.CORS_ORIGIN || '*',
+        methods: ['GET', 'POST']
+    }
 });
 
 let totalPlayers = 0;
 let players = {};
-let waiting = {
-    '10': [],
-    '15': [],
-    '20': []
-};
-let matches = {
-    '10': [],
-    '15': [],
-    '20': []
-};
-
-function removeFromWaiting(socket) {
-    for (let time in waiting) {
-        const index = waiting[time].indexOf(socket.id);
-        if (index !== -1) {
-            waiting[time].splice(index, 1);
-            break;
-        }
-    }
-}              
+const matchmaker = createMatchmaker();
 
 function fireTotalPlayers(){
     io.emit('total-players', totalPlayers);
@@ -97,16 +79,18 @@ function fireMatches({ opponentId, socketId , time}) {
 
 
 function handleplayrequest(socket, time) {
-    if (waiting[time].length >= 1) {
-        const opponentId = waiting[time].splice(0, 1)[0];
-        matches[time].push([socket.id, opponentId]);
-        fireMatches({opponentId, socketId: socket.id, time});
+    const result = matchmaker.addPlayer(socket.id, time);
+    if (!result) {
         return;
     }  
-    if (!waiting[time].includes(socket.id)) {
-        waiting[time].push(socket.id);
+
+    if (result.status === 'matched') {
+        fireMatches({
+            opponentId: result.blackId,
+            socketId: result.whiteId,
+            time: result.time
+        });
     }
-    //console.log(waiting);
 }
 
 io.on('connection', (socket) => {
@@ -120,11 +104,12 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         totalPlayers = Math.max(0, totalPlayers - 1);
         delete players[socket.id];
-        removeFromWaiting(socket);
+        matchmaker.removePlayer(socket.id);
         fireTotalPlayers();
     });
 });
 
-httpServer.listen(3000, () => {
-    console.log('listening to port 3000');
+const port = process.env.PORT || 3000;
+httpServer.listen(port, () => {
+    console.log(`listening to port ${port}`);
 });
