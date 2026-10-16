@@ -38,6 +38,26 @@ npm test
 The Jest tests cover matchmaking queueing, pairing, duplicate requests,
 disconnection cleanup, and invalid time controls.
 
+## Deploy on Render
+
+This repository includes a Render Blueprint in [`render.yaml`](./render.yaml)
+for the multiplayer app. To deploy it:
+
+1. Push this repository to GitHub.
+2. In Render, choose **New +** → **Blueprint** and connect this repository.
+3. Review the `chess-multiplayer` web service and choose a plan, then apply the
+   Blueprint.
+
+Render installs dependencies with `npm ci` and starts the app with `npm start`.
+The server listens on Render's `PORT` environment variable and serves the game
+and Socket.IO from the same web service; no separate static site or CORS
+configuration is needed.
+
+Matchmaking queues and active games are stored only in server memory. They are
+lost when the service restarts, and running multiple instances does not share
+queues or game state. For reliable multiplayer sessions, use a single instance
+and a plan that does not frequently spin the service down.
+
 ## Implementation notes
 
 The server pairs players using in-memory matchmaking queues and relays
